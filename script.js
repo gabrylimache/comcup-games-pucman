@@ -1,129 +1,274 @@
-// Dimensioni della griglia
+const gridElement = document.getElementById('grid');
+
+const scoreElement = document.getElementById('score');
+
+const startBtn = document.getElementById('start-btn');
+
+const overlay = document.getElementById('overlay');
+
+const statusText = document.getElementById('status-text');
+ 
 const width = 15;
-const game = document.getElementById("game");
-const message = document.getElementById("message");
 
-// Layout:
-// 0 = pallino
-// 1 = muro
-// 2 = spazio vuoto
+let cells = [];
+
+let score = 0;
+
+let playerIndex = 16; // Posizione iniziale
+
+let dotsCount = 0;
+
+let isGameOver = true;
+ 
+// Mappa: 0 = Punto, 1 = Muro, 2 = Spazio vuoto
+
 const layout = [
+
     1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-    1,0,0,0,0,1,0,0,0,1,0,0,0,0,1,
+
+    1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,
+
+    1,0,1,1,0,1,1,0,1,1,0,1,1,0,1,
+
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+
     1,0,1,1,0,1,0,1,0,1,0,1,1,0,1,
-    1,0,0,0,0,0,0,1,0,0,0,0,0,0,1,
-    1,0,1,1,0,1,0,1,0,1,0,1,1,0,1,
-    1,0,0,0,0,1,0,0,0,1,0,0,0,0,1,
+
+    1,0,0,0,0,1,0,1,0,1,0,0,0,0,1,
+
     1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,
-    1,2,2,1,0,0,0,2,0,0,0,1,2,2,1,
+
+    2,2,2,1,0,0,0,2,0,0,0,1,2,2,2,
+
     1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,
-    1,0,0,0,0,1,0,0,0,1,0,0,0,0,1,
-    1,0,1,1,0,1,0,1,0,1,0,1,1,0,1,
+
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+
+    1,0,1,1,0,1,1,1,1,1,0,1,1,0,1,
+
+    1,0,0,1,0,0,0,0,0,0,0,1,0,0,1,
+
+    1,1,0,1,1,0,1,1,1,0,1,1,0,1,1,
+
     1,0,0,0,0,0,0,1,0,0,0,0,0,0,1,
-    1,0,1,1,0,1,0,1,0,1,0,1,1,0,1,
-    1,0,0,0,0,1,0,0,0,1,0,0,0,0,1,
-    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+
 ];
-
-// Celle HTML
-const cells = [];
-
-// Creazione mappa
-layout.forEach(value => {
-    const cell = document.createElement("div");
-    cell.classList.add("cell");
-
-    if (value === 1) cell.classList.add("wall");
-    if (value === 0) cell.classList.add("dot");
-
-    game.appendChild(cell);
-    cells.push(cell);
-});
-
-// Posizione player
-let playerIndex = 22;
-cells[playerIndex].classList.add("player");
-
+ 
 // Fantasmi
+
+class Ghost {
+
+    constructor(className, startIndex, speed) {
+
+        this.className = className;
+
+        this.startIndex = startIndex;
+
+        this.currentIndex = startIndex;
+
+        this.speed = speed;
+
+        this.timerId = NaN;
+
+    }
+
+}
+ 
 const ghosts = [
-    { index: 112, class: "red", direction: 1 },
-    { index: 116, class: "blue", direction: -1 }
+
+    new Ghost('ghost-red', 104, 300),
+
+    new Ghost('ghost-blue', 115, 400)
+
 ];
+ 
+// Creazione Griglia
 
-// Disegno fantasmi
-ghosts.forEach(g => {
-    cells[g.index].classList.add("ghost", g.class);
-});
+function createBoard() {
 
-// Movimento player
-document.addEventListener("keydown", e => {
-    cells[playerIndex].classList.remove("player");
+    gridElement.innerHTML = '';
 
-    let next = playerIndex;
+    cells = [];
 
-    switch (e.key) {
-        case "ArrowUp":
-            next -= width;
-            break;
-        case "ArrowDown":
-            next += width;
-            break;
-        case "ArrowLeft":
-            next -= 1;
-            break;
-        case "ArrowRight":
-            next += 1;
-            break;
+    dotsCount = 0;
+
+    layout.forEach((value, index) => {
+
+        const cell = document.createElement('div');
+
+        cell.classList.add('cell');
+
+        gridElement.appendChild(cell);
+
+        cells.push(cell);
+ 
+        if (value === 1) cell.classList.add('wall');
+
+        else if (value === 0) {
+
+            cell.classList.add('dot');
+
+            dotsCount++;
+
+        }
+
+    });
+
+}
+ 
+// Movimento Giocatore
+
+function handleKeyPress(e) {
+
+    if (isGameOver) return;
+
+    cells[playerIndex].classList.remove('player');
+
+    let nextIndex = playerIndex;
+ 
+    switch(e.key) {
+
+        case 'ArrowLeft': if (playerIndex % width !== 0) nextIndex -= 1; break;
+
+        case 'ArrowRight': if (playerIndex % width < width - 1) nextIndex += 1; break;
+
+        case 'ArrowUp': if (playerIndex - width >= 0) nextIndex -= width; break;
+
+        case 'ArrowDown': if (playerIndex + width < width * width) nextIndex += width; break;
+
     }
+ 
+    if (!cells[nextIndex].classList.contains('wall')) {
 
-    if (!cells[next].classList.contains("wall")) {
-        playerIndex = next;
+        playerIndex = nextIndex;
+
     }
+ 
+    // Mangia pallino
 
-    if (cells[playerIndex].classList.contains("dot")) {
-        cells[playerIndex].classList.remove("dot");
+    if (cells[playerIndex].classList.contains('dot')) {
+
+        cells[playerIndex].classList.remove('dot');
+
+        score += 10;
+
+        dotsCount--;
+
+        scoreElement.textContent = `Punti: ${score}`;
+
+        checkWin();
+
     }
+ 
+    cells[playerIndex].classList.add('player');
 
-    cells[playerIndex].classList.add("player");
-    checkWin();
-});
+    checkGameOver();
 
-// Movimento fantasmi
+}
+ 
+// Logica Fantasmi
+
 function moveGhost(ghost) {
+
     const directions = [-1, 1, width, -width];
-    let dir = directions[Math.floor(Math.random() * directions.length)];
 
-    let next = ghost.index + dir;
+    let direction = directions[Math.floor(Math.random() * directions.length)];
+ 
+    ghost.timerId = setInterval(() => {
 
-    if (
-        !cells[next].classList.contains("wall") &&
-        !cells[next].classList.contains("ghost")
-    ) {
-        cells[ghost.index].classList.remove("ghost", ghost.class);
-        ghost.index = next;
-        cells[ghost.index].classList.add("ghost", ghost.class);
-    }
+        // Se non colpisce un muro o un altro fantasma
 
-    if (ghost.index === playerIndex) {
-        gameOver();
-    }
+        if (!cells[ghost.currentIndex + direction].classList.contains('wall') && 
+
+            !cells[ghost.currentIndex + direction].classList.contains('ghost')) {
+
+            cells[ghost.currentIndex].classList.remove(ghost.className, 'ghost');
+
+            ghost.currentIndex += direction;
+
+            cells[ghost.currentIndex].classList.add(ghost.className, 'ghost');
+
+        } else {
+
+            direction = directions[Math.floor(Math.random() * directions.length)];
+
+        }
+
+        checkGameOver();
+
+    }, ghost.speed);
+
 }
+ 
+function checkGameOver() {
 
-// Loop fantasmi
-ghosts.forEach(g =>
-    setInterval(() => moveGhost(g), 500)
-);
+    if (cells[playerIndex].classList.contains('ghost')) {
 
-// Vittoria
+        ghosts.forEach(g => clearInterval(g.timerId));
+
+        isGameOver = true;
+
+        statusText.textContent = "GAME OVER!";
+
+        overlay.classList.add('visible');
+
+    }
+
+}
+ 
 function checkWin() {
-    if (!document.querySelector(".dot")) {
-        message.textContent = "HAI VINTO!";
-        document.removeEventListener("keydown", () => {});
-    }
-}
 
-// Sconfitta
-function gameOver() {
-    message.textContent = "GAME OVER";
-    document.removeEventListener("keydown", () => {});
+    if (dotsCount === 0) {
+
+        ghosts.forEach(g => clearInterval(g.timerId));
+
+        isGameOver = true;
+
+        statusText.textContent = "HAI VINTO!";
+
+        overlay.classList.add('visible');
+
+    }
+
 }
+ 
+function startGame() {
+
+    if (!isGameOver) return;
+
+    // Reset variabili
+
+    score = 0;
+
+    scoreElement.textContent = `Punti: 0`;
+
+    isGameOver = false;
+
+    playerIndex = 16;
+
+    overlay.classList.remove('visible');
+ 
+    createBoard();
+
+    cells[playerIndex].classList.add('player');
+ 
+    ghosts.forEach(ghost => {
+
+        ghost.currentIndex = ghost.startIndex;
+
+        moveGhost(ghost);
+
+    });
+
+}
+ 
+document.addEventListener('keydown', handleKeyPress);
+
+startBtn.addEventListener('click', startGame);
+ 
+// Inizializzazione visiva
+
+createBoard();
+ 
