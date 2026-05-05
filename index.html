@@ -1,30 +1,37 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pucman - Comcup Games</title>
-<link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pucman - Comcup Games</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
- 
+
     <div id="game-container">
-<h1>PUCMAN</h1>
-<div id="score">Punti: 0</div>
-<div id="grid-wrapper">
-<div id="grid"></div>
-<div id="overlay" class="visible">
-<div id="menu-content">
-<h2 id="status-text">Pronto a Mangiare?</h2>
-<button id="start-btn">Start Game</button>
-</div>
-</div>
-</div>
- 
-        <div class="controls-hint">Usa le frecce della tastiera per muoverti!</div>
-</div>
- 
+        <h1>PUCMAN</h1>
+
+        <div id="hud">
+            <div id="score">Punti: 0</div>
+            <div id="lives">Vite: 3</div>
+        </div>
+
+        <div id="grid-wrapper">
+            <div id="grid"></div>
+
+            <div id="overlay" class="visible">
+                <div id="menu-content">
+                    <h2 id="status-text">Pronto a Mangiare?</h2>
+                    <button id="start-btn">Start Game</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls-hint">
+            Usa le frecce della tastiera per muoverti. Mangia i power-up per rendere vulnerabili i fantasmi!
+        </div>
+    </div>
+
     <script src="script.js"></script>
 </body>
 </html>
- 
