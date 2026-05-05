@@ -276,27 +276,15 @@ h1 {
     background-color: var(--frightened-color) !important;
 }
 
-/* Lampeggio normale mentre sono vulnerabili */
+/* Stato normale mentre i fantasmi sono vulnerabili */
 .frightened:not(.frightened-ending) {
-    animation: frightenedBlink 0.35s infinite alternate;
+    filter: brightness(1.25);
 }
 
-/* Lampeggio più evidente negli ultimi 3 secondi */
+/* Lampeggio negli ultimi 2 secondi */
 .frightened-ending {
     animation: frightenedEndingBlink 0.18s infinite alternate;
 }
-
-@keyframes frightenedBlink {
-    from {
-        filter: brightness(1);
-    }
-
-    to {
-        filter: brightness(1.7);
-    }
-}
-
-
 
 @keyframes frightenedEndingBlink {
     from {
@@ -306,7 +294,7 @@ h1 {
 
     to {
         background-color: white;
-        filter: brightness(1.8);
+        filter: brightness(1.9);
     }
 }
 

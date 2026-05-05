@@ -13,7 +13,9 @@ const PLAYER_START_INDEX = 325;
 
 const GAME_SPEED = 170;
 const POWER_TIME = 7000;
-const POWER_WARNING_TIME = 3000;
+
+// Ultimi 2 secondi del power-up: i fantasmi lampeggiano
+const POWER_WARNING_TIME = 2000;
 
 const CHERRY_SCORE = 100;
 const CHERRY_MIN_SPAWN_TIME = 6000;
@@ -49,17 +51,17 @@ spazio = percorso vuoto
 */
 const layout = [
     "#####################",
-    "#o.......#.........o#",
-    "#.###.###.#.###.###.#",
+    "#o.................o#",
+    "#.###.#####.###.###.#",
     "#...................#",
     "#.###.#.#####.#.###.#",
     "#.....#...#...#.....#",
     "#####.### # ###.#####",
-    "    #.#       #.#    ",
+    "#####.#       #.#####",
     "#####.# ##-## #.#####",
     "     .  #   #  .     ",
     "#####.# ##### #.#####",
-    "    #.#       #.#    ",
+    "#####.#       #.#####",
     "#####.# ##### #.#####",
     "#.........#.........#",
     "#.###.###.#.###.###.#",
@@ -308,6 +310,9 @@ function activatePowerMode() {
     clearTimeout(powerTimerId);
     clearTimeout(powerWarningTimerId);
 
+    powerTimerId = null;
+    powerWarningTimerId = null;
+
     ghosts.forEach(ghost => {
         const cell = cells[ghost.currentIndex];
         if (!cell) return;
@@ -316,9 +321,10 @@ function activatePowerMode() {
         cell.classList.remove('frightened-ending');
     });
 
-    // ⏱️ ultimi 3 secondi → lampeggio forte
+    // Ultimi 2 secondi: attiva il lampeggio
     powerWarningTimerId = setTimeout(() => {
         isPowerEnding = true;
+        powerWarningTimerId = null;
 
         ghosts.forEach(ghost => {
             const cell = cells[ghost.currentIndex];
@@ -333,6 +339,7 @@ function activatePowerMode() {
 
 function deactivatePowerMode() {
     isPowerMode = false;
+    isPowerEnding = false;
 
     clearTimeout(powerTimerId);
     clearTimeout(powerWarningTimerId);
@@ -387,7 +394,7 @@ function moveGhosts() {
         if (isPowerMode) {
             cells[ghost.currentIndex].classList.add('frightened');
 
-            if (powerWarningTimerId === null) {
+            if (isPowerEnding) {
                 cells[ghost.currentIndex].classList.add('frightened-ending');
             }
         }
@@ -507,7 +514,7 @@ function eatGhost(ghost) {
     if (isPowerMode) {
         cells[ghost.currentIndex].classList.add('frightened');
 
-        if (powerWarningTimerId === null) {
+        if (isPowerEnding) {
             cells[ghost.currentIndex].classList.add('frightened-ending');
         }
     }
@@ -643,6 +650,7 @@ function clearAllTimers() {
 function endGame(message) {
     isGameOver = true;
     isPowerMode = false;
+    isPowerEnding = false;
 
     clearAllTimers();
     removeCherry();
@@ -669,6 +677,7 @@ function startGame() {
     requestedDirection = 0;
     isGameOver = false;
     isPowerMode = false;
+    isPowerEnding = false;
     cherryIndex = null;
 
     updateHud();
