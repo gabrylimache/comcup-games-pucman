@@ -1,4 +1,3 @@
-
 const gridElement = document.getElementById('grid');
 const scoreElement = document.getElementById('score');
 const livesElement = document.getElementById('lives');
@@ -12,8 +11,16 @@ const totalCells = width * height;
 
 const PLAYER_START_INDEX = 325;
 
-const GAME_SPEED = 130;
+const GAME_SPEED = 170;
 const POWER_TIME = 7000;
+
+// Ultimi 2 secondi del power-up: i fantasmi lampeggiano
+const POWER_WARNING_TIME = 2000;
+
+const CHERRY_SCORE = 100;
+const CHERRY_MIN_SPAWN_TIME = 6000;
+const CHERRY_MAX_SPAWN_TIME = 12000;
+const CHERRY_VISIBLE_TIME = 7500;
 
 let cells = [];
 let score = 0;
@@ -27,7 +34,12 @@ let requestedDirection = 0;
 let isGameOver = true;
 let gameTimerId = null;
 let powerTimerId = null;
+let powerWarningTimerId = null;
+let cherrySpawnTimerId = null;
+let cherryDespawnTimerId = null;
+let isPowerEnding = false;
 let isPowerMode = false;
+let cherryIndex = null;
 
 /*
 Legenda mappa:
@@ -39,17 +51,17 @@ spazio = percorso vuoto
 */
 const layout = [
     "#####################",
-    "#o.......#.........o#",
-    "#.###.###.#.###.###.#",
+    "#o.................o#",
+    "#.###.#####.###.###.#",
     "#...................#",
     "#.###.#.#####.#.###.#",
     "#.....#...#...#.....#",
     "#####.### # ###.#####",
-    "    #.#       #.#    ",
+    "#####.#       #.#####",
     "#####.# ##-## #.#####",
     "     .  #   #  .     ",
     "#####.# ##### #.#####",
-    "    #.#       #.#    ",
+    "#####.#       #.#####",
     "#####.# ##### #.#####",
     "#.........#.........#",
     "#.###.###.#.###.###.#",
@@ -62,12 +74,13 @@ const layout = [
 ];
 
 class Ghost {
-    constructor(className, startIndex, moveDelay, releaseDelay) {
+    constructor(className, startIndex, moveDelay, releaseDelay, behavior) {
         this.className = className;
         this.startIndex = startIndex;
         this.currentIndex = startIndex;
         this.moveDelay = moveDelay;
         this.releaseDelay = releaseDelay;
+        this.behavior = behavior;
         this.lastMoveTime = 0;
         this.direction = -width;
         this.isReleased = false;
@@ -84,16 +97,17 @@ class Ghost {
 }
 
 const ghosts = [
-    new Ghost('ghost-red', 199, 260, 800),
-    new Ghost('ghost-blue', 198, 310, 2500),
-    new Ghost('ghost-pink', 200, 330, 4000),
-    new Ghost('ghost-orange', 220, 360, 5500)
+    new Ghost('ghost-red', 199, 260, 800, 'chase'),
+    new Ghost('ghost-blue', 198, 310, 2500, 'random'),
+    new Ghost('ghost-pink', 200, 330, 4000, 'random'),
+    new Ghost('ghost-orange', 220, 360, 5500, 'random')
 ];
 
 function createBoard() {
     gridElement.innerHTML = '';
     cells = [];
     dotsCount = 0;
+    cherryIndex = null;
 
     layout.forEach(row => {
         row.split('').forEach(symbol => {
@@ -220,7 +234,7 @@ function movePlayer() {
 
     playerIndex = nextIndex;
 
-    eatDotOrPowerPellet();
+    eatItems();
     addPlayerToBoard();
     checkGhostCollision();
 }
@@ -239,7 +253,7 @@ function addPlayerToBoard() {
     }
 }
 
-function eatDotOrPowerPellet() {
+function eatItems() {
     if (cells[playerIndex].classList.contains('dot')) {
         cells[playerIndex].classList.remove('dot');
         score += 10;
@@ -256,26 +270,88 @@ function eatDotOrPowerPellet() {
         activatePowerMode();
         checkWin();
     }
+
+    if (cells[playerIndex].classList.contains('cherry')) {
+        eatCherry();
+    }
+}
+
+function eatCherry() {
+    cells[playerIndex].classList.remove('cherry');
+    cherryIndex = null;
+
+    clearTimeout(cherryDespawnTimerId);
+    cherryDespawnTimerId = null;
+
+    score += CHERRY_SCORE;
+    updateHud();
+    showScorePopup(playerIndex, `+${CHERRY_SCORE}`);
+    scheduleNextCherry();
+}
+
+function showScorePopup(index, text) {
+    if (!cells[index]) return;
+
+    const popup = document.createElement('div');
+    popup.classList.add('score-popup');
+    popup.textContent = text;
+
+    cells[index].appendChild(popup);
+
+    setTimeout(() => {
+        popup.remove();
+    }, 900);
 }
 
 function activatePowerMode() {
     isPowerMode = true;
-
-    ghosts.forEach(ghost => {
-        cells[ghost.currentIndex].classList.add('frightened');
-    });
+    isPowerEnding = false;
 
     clearTimeout(powerTimerId);
+    clearTimeout(powerWarningTimerId);
 
-    powerTimerId = setTimeout(() => {
-        isPowerMode = false;
+    powerTimerId = null;
+    powerWarningTimerId = null;
+
+    ghosts.forEach(ghost => {
+        const cell = cells[ghost.currentIndex];
+        if (!cell) return;
+
+        cell.classList.add('frightened');
+        cell.classList.remove('frightened-ending');
+    });
+
+    // Ultimi 2 secondi: attiva il lampeggio
+    powerWarningTimerId = setTimeout(() => {
+        isPowerEnding = true;
+        powerWarningTimerId = null;
 
         ghosts.forEach(ghost => {
-            if (cells[ghost.currentIndex]) {
-                cells[ghost.currentIndex].classList.remove('frightened');
-            }
+            const cell = cells[ghost.currentIndex];
+            if (!cell) return;
+
+            cell.classList.add('frightened-ending');
         });
-    }, POWER_TIME);
+    }, POWER_TIME - POWER_WARNING_TIME);
+
+    powerTimerId = setTimeout(deactivatePowerMode, POWER_TIME);
+}
+
+function deactivatePowerMode() {
+    isPowerMode = false;
+    isPowerEnding = false;
+
+    clearTimeout(powerTimerId);
+    clearTimeout(powerWarningTimerId);
+
+    powerTimerId = null;
+    powerWarningTimerId = null;
+
+    ghosts.forEach(ghost => {
+        if (cells[ghost.currentIndex]) {
+            cells[ghost.currentIndex].classList.remove('frightened', 'frightened-ending');
+        }
+    });
 }
 
 function moveGhosts() {
@@ -307,7 +383,8 @@ function moveGhosts() {
         cells[ghost.currentIndex].classList.remove(
             ghost.className,
             'ghost',
-            'frightened'
+            'frightened',
+            'frightened-ending'
         );
 
         ghost.currentIndex = getNextIndex(ghost.currentIndex, ghost.direction);
@@ -316,6 +393,10 @@ function moveGhosts() {
 
         if (isPowerMode) {
             cells[ghost.currentIndex].classList.add('frightened');
+
+            if (isPowerEnding) {
+                cells[ghost.currentIndex].classList.add('frightened-ending');
+            }
         }
 
         checkGhostCollision();
@@ -352,9 +433,7 @@ function chooseGhostDirection(ghost, possibleDirections) {
         return chooseDirectionAwayFromPlayer(ghost, possibleDirections);
     }
 
-    const randomChance = Math.random();
-
-    if (randomChance < 0.65) {
+    if (ghost.behavior === 'chase') {
         return chooseDirectionTowardPlayer(ghost, possibleDirections);
     }
 
@@ -420,17 +499,24 @@ function eatGhost(ghost) {
     cells[ghost.currentIndex].classList.remove(
         ghost.className,
         'ghost',
-        'frightened'
+        'frightened',
+        'frightened-ending'
     );
 
     score += 200;
     updateHud();
+    showScorePopup(ghost.currentIndex, '+200');
 
     ghost.reset();
+
     cells[ghost.currentIndex].classList.add(ghost.className, 'ghost');
 
     if (isPowerMode) {
         cells[ghost.currentIndex].classList.add('frightened');
+
+        if (isPowerEnding) {
+            cells[ghost.currentIndex].classList.add('frightened-ending');
+        }
     }
 }
 
@@ -459,9 +545,12 @@ function resetPositions() {
         cells[ghost.currentIndex].classList.remove(
             ghost.className,
             'ghost',
-            'frightened'
+            'frightened',
+            'frightened-ending'
         );
     });
+
+    deactivatePowerMode();
 
     playerIndex = PLAYER_START_INDEX;
     currentDirection = 0;
@@ -475,6 +564,64 @@ function resetPositions() {
     addPlayerToBoard();
 }
 
+function scheduleNextCherry() {
+    clearTimeout(cherrySpawnTimerId);
+
+    if (isGameOver) return;
+
+    const randomDelay = getRandomNumber(CHERRY_MIN_SPAWN_TIME, CHERRY_MAX_SPAWN_TIME);
+
+    cherrySpawnTimerId = setTimeout(() => {
+        spawnCherry();
+    }, randomDelay);
+}
+
+function spawnCherry() {
+    if (isGameOver || cherryIndex !== null) return;
+
+    const availableCells = cells
+        .map((cell, index) => ({ cell, index }))
+        .filter(({ cell, index }) => {
+            if (!canPlayerMoveTo(index)) return false;
+            if (index === playerIndex) return false;
+            if (cell.classList.contains('dot')) return false;
+            if (cell.classList.contains('power-pellet')) return false;
+            if (cell.classList.contains('ghost')) return false;
+            if (cell.classList.contains('cherry')) return false;
+            return true;
+        });
+
+    if (availableCells.length === 0) {
+        scheduleNextCherry();
+        return;
+    }
+
+    const randomCell = availableCells[Math.floor(Math.random() * availableCells.length)];
+    cherryIndex = randomCell.index;
+    cells[cherryIndex].classList.add('cherry');
+
+    clearTimeout(cherryDespawnTimerId);
+
+    cherryDespawnTimerId = setTimeout(() => {
+        removeCherry();
+        scheduleNextCherry();
+    }, CHERRY_VISIBLE_TIME);
+}
+
+function removeCherry() {
+    if (cherryIndex === null) return;
+
+    if (cells[cherryIndex]) {
+        cells[cherryIndex].classList.remove('cherry');
+    }
+
+    cherryIndex = null;
+}
+
+function getRandomNumber(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
 function updateHud() {
     scoreElement.textContent = `Punti: ${score}`;
     livesElement.textContent = `Vite: ${lives}`;
@@ -486,14 +633,27 @@ function checkWin() {
     }
 }
 
-function endGame(message) {
-    isGameOver = true;
-
+function clearAllTimers() {
     clearInterval(gameTimerId);
     clearTimeout(powerTimerId);
+    clearTimeout(powerWarningTimerId);
+    clearTimeout(cherrySpawnTimerId);
+    clearTimeout(cherryDespawnTimerId);
 
     gameTimerId = null;
     powerTimerId = null;
+    powerWarningTimerId = null;
+    cherrySpawnTimerId = null;
+    cherryDespawnTimerId = null;
+}
+
+function endGame(message) {
+    isGameOver = true;
+    isPowerMode = false;
+    isPowerEnding = false;
+
+    clearAllTimers();
+    removeCherry();
 
     statusText.textContent = message;
     startBtn.textContent = 'Rigioca';
@@ -508,8 +668,7 @@ function gameLoop() {
 }
 
 function startGame() {
-    clearInterval(gameTimerId);
-    clearTimeout(powerTimerId);
+    clearAllTimers();
 
     score = 0;
     lives = 3;
@@ -518,6 +677,8 @@ function startGame() {
     requestedDirection = 0;
     isGameOver = false;
     isPowerMode = false;
+    isPowerEnding = false;
+    cherryIndex = null;
 
     updateHud();
     createBoard();
@@ -532,6 +693,7 @@ function startGame() {
     overlay.classList.remove('visible');
 
     gameTimerId = setInterval(gameLoop, GAME_SPEED);
+    scheduleNextCherry();
 }
 
 document.addEventListener('keydown', handleKeyDown);
