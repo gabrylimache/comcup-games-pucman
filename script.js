@@ -11,7 +11,7 @@ const totalCells = width * height;
 
 const PLAYER_START_INDEX = 325;
 
-const GAME_SPEED = 130;
+const GAME_SPEED = 170;
 const POWER_TIME = 7000;
 const POWER_WARNING_TIME = 3000;
 
@@ -35,7 +35,7 @@ let powerTimerId = null;
 let powerWarningTimerId = null;
 let cherrySpawnTimerId = null;
 let cherryDespawnTimerId = null;
-
+let isPowerEnding = false;
 let isPowerMode = false;
 let cherryIndex = null;
 
@@ -303,28 +303,32 @@ function showScorePopup(index, text) {
 
 function activatePowerMode() {
     isPowerMode = true;
+    isPowerEnding = false;
 
     clearTimeout(powerTimerId);
     clearTimeout(powerWarningTimerId);
 
     ghosts.forEach(ghost => {
-        if (cells[ghost.currentIndex]) {
-            cells[ghost.currentIndex].classList.add('frightened');
-            cells[ghost.currentIndex].classList.remove('frightened-ending');
-        }
+        const cell = cells[ghost.currentIndex];
+        if (!cell) return;
+
+        cell.classList.add('frightened');
+        cell.classList.remove('frightened-ending');
     });
 
+    // ⏱️ ultimi 3 secondi → lampeggio forte
     powerWarningTimerId = setTimeout(() => {
+        isPowerEnding = true;
+
         ghosts.forEach(ghost => {
-            if (cells[ghost.currentIndex]) {
-                cells[ghost.currentIndex].classList.add('frightened-ending');
-            }
+            const cell = cells[ghost.currentIndex];
+            if (!cell) return;
+
+            cell.classList.add('frightened-ending');
         });
     }, POWER_TIME - POWER_WARNING_TIME);
 
-    powerTimerId = setTimeout(() => {
-        deactivatePowerMode();
-    }, POWER_TIME);
+    powerTimerId = setTimeout(deactivatePowerMode, POWER_TIME);
 }
 
 function deactivatePowerMode() {

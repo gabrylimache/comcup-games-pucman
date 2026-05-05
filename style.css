@@ -296,6 +296,8 @@ h1 {
     }
 }
 
+
+
 @keyframes frightenedEndingBlink {
     from {
         background-color: var(--frightened-color);
